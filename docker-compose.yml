@@ -1,98 +1,18 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:13-alpine
-    container_name: kitsu-postgres
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-zou}
-      POSTGRES_USER: ${POSTGRES_USER:-zou}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - ./data/postgres:/var/lib/postgresql/data
-    networks:
-      - kitsu-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zou} -d ${POSTGRES_DB:-zou}"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  redis:
-    image: redis:6-alpine
-    container_name: kitsu-redis
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
-    volumes:
-      - ./data/redis:/data
-    networks:
-      - kitsu-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  zou:
-    image: cgwire/zou:latest
-    container_name: kitsu-zou
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-zou}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-zou}
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
-      SECRET_KEY: ${ZOU_SECRET_KEY}
-      ZOU_HOST: 0.0.0.0
-      ZOU_PORT: 5000
-      DEFAULT_EMAIL: ${ZOU_ADMIN_EMAIL}
-      DEFAULT_PASSWORD: ${ZOU_ADMIN_PASSWORD}
-    volumes:
-      - ./data/zou:/var/lib/zou
-      - ./data/previews:/var/lib/zou/previews
-    networks:
-      - kitsu-network
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/api/status"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
   kitsu:
-    image: cgwire/kitsu:latest
-    container_name: kitsu-frontend
-    environment:
-      API_URL: http://zou:5000
-      API_HOST: zou
-      API_PORT: 5000
+    image: cgwire/cgwire:latest
+    container_name: kitsu-all-in-one
     ports:
       - "80:80"
-    networks:
-      - kitsu-network
-    depends_on:
-      zou:
-        condition: service_healthy
+    volumes:
+      - kitsu-data:/var/lib/postgresql
+      - kitsu-previews:/opt/zou/previews
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-networks:
-  kitsu-network:
-    driver: bridge
 
 volumes:
-  postgres_data:
+  kitsu-data:
     driver: local
-  redis_data:
-    driver: local
-  zou_data:
-    driver: local
-  previews_data:
+  kitsu-previews:
     driver: local
